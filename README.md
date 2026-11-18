@@ -183,6 +183,11 @@ Alternative you can use the script from Uhula: https://forum.iobroker.net/post/4
 	Placeholder for the next version (at the beginning of the line):
 	### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+* (cavernerg) Process player list answers one at a time
+* (cavernerg) Tolerate incomplete player entries instead of dropping the connection
+* (cavernerg) Refresh the player list periodically when connecting without SSDP discovery; unchanged player objects are no longer rewritten
+
 ### 3.3.0 (2026-11-27)
 * (Schimi1983) Player timers use the adapter timer functions, so they are cleaned up reliably when the adapter stops
 * (Schimi1983) Fix warnings "State ...quick_selects.<n>.connected has no existing object" on start/stop
