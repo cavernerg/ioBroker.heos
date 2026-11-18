@@ -186,7 +186,11 @@ Alternative you can use the script from Uhula: https://forum.iobroker.net/post/4
 ### **WORK IN PROGRESS**
 * (cavernerg) Process player list answers one at a time
 * (cavernerg) Tolerate incomplete player entries instead of dropping the connection
-* (cavernerg) Refresh the player list periodically when connecting without SSDP discovery; unchanged player objects are no longer rewritten
+* (cavernerg) Refresh the player list periodically when connected through configured IPs (no SSDP search interval running); unchanged player objects are no longer rewritten
+* (cavernerg) Never use stored player IPs as connect targets; without SSDP discovery only the preferred IPs are used
+* (cavernerg) Give up a player connect after 45 seconds so it cannot block later player list updates
+* (cavernerg) Retry a failed player metadata update with the next player list
+* (cavernerg) Warn only once while a player connect keeps failing
 
 ### 3.3.0 (2026-11-27)
 * (Schimi1983) Player timers use the adapter timer functions, so they are cleaned up reliably when the adapter stops
