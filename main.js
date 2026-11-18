@@ -192,6 +192,7 @@ class Heos extends utils.Adapter {
             this.connection_generation = 0;
             this.start_players_running = false;
             this.reconnect_pending = false;
+            this.reconnect_seq = 0;
         }
     }
 
@@ -405,6 +406,7 @@ class Heos extends utils.Adapter {
      * Is called when adapter shuts down
      */
     async onUnload() {
+        this.reconnect_seq++;
         this.reconnect_pending = false;
         await this.disconnect();
     }
@@ -669,12 +671,17 @@ class Heos extends utils.Adapter {
                         break;
                     case 'connect':
                         // Hold the reconnect lock until search() starts, so no
-                        // reconnect can slip in while disconnect() is running.
+                        // reconnect can slip in while disconnect() is running,
+                        // and drop a reconnect that is already running.
+                        this.reconnect_seq++;
                         this.reconnect_pending = true;
                         await this.disconnect();
                         this.search();
                         break;
                     case 'disconnect':
+                        // Drop a running reconnect and keep new ones out until disconnected.
+                        this.reconnect_seq++;
+                        this.reconnect_pending = true;
                         await this.disconnect();
                         this.reconnect_pending = false;
                         break;
@@ -3014,6 +3021,7 @@ class Heos extends utils.Adapter {
     /** Verbindung zum HEOS System herstellen */
     async search() {
         this.reconnect_pending = false;
+        this.reconnect_seq++;
         try {
             //Reset connect states
             this.setStateChanged('info.connection', false, true);
@@ -3566,10 +3574,15 @@ class Heos extends utils.Adapter {
             return;
         }
         this.reconnect_pending = true;
+        const seq = this.reconnect_seq;
 
         this.logInfo('reconnecting to HEOS ...', false);
 
         await this.disconnect();
+        // A manual command, search() or unload took over while disconnecting.
+        if (seq !== this.reconnect_seq) {
+            return;
+        }
 
         this.state = STATES.Reconnecting;
         if (this.reconnect_timeout) {
