@@ -19,6 +19,7 @@ import {
     INCOMPLETE_PLAYERS_RETRY_MS,
     INCOMPLETE_PLAYERS_TOLERANCE_MS,
     PLAYER_CONNECT_TIMEOUT_MS,
+    PLAYER_CONNECT_STAGGER_MS,
 } from './lib/constants.js';
 
 const NodeSSDP = SSDP.Client;
@@ -46,11 +47,20 @@ class Heos extends utils.Adapter {
         this.ip = '';
         this.state = STATES.Disconnected;
         this.signed_in = false;
+        // true while the current connection was opened only to reboot a device
+        this.reboot_only_connection = false;
 
+        // Clear each timer before dropping its handle, otherwise a timer created
+        // meanwhile keeps running unreachable. On the first call from the
+        // constructor the fields are still undefined, which clearing ignores.
         this.heartbeat_retries = 0;
+        clearInterval(this.heartbeat_interval);
         this.heartbeat_interval = undefined;
+        clearInterval(this.player_refresh_interval);
         this.player_refresh_interval = undefined;
+        clearInterval(this.ssdp_search_interval);
         this.ssdp_search_interval = undefined;
+        clearTimeout(this.ssdp_search_timeout);
         this.ssdp_search_timeout = undefined;
 
         this.start_players_errors = 0;
@@ -63,9 +73,13 @@ class Heos extends utils.Adapter {
 
         this.ssdp_player_ips = [];
 
+        clearTimeout(this.reconnect_timeout);
         this.reconnect_timeout = undefined;
+        clearTimeout(this.reboot_timeout);
         this.reboot_timeout = undefined;
+        clearTimeout(this.replay_timeout);
         this.replay_timeout = undefined;
+        clearTimeout(this.incomplete_players_timeout);
         this.incomplete_players_timeout = undefined;
 
         this.net_client = undefined;
@@ -188,6 +202,10 @@ class Heos extends utils.Adapter {
             this.next_connect_ips = [];
             this.connection_generation = 0;
             this.start_players_running = false;
+            this.start_players_generation = undefined;
+            this.reconnect_pending = false;
+            this.reconnect_seq = 0;
+            this.unloading = false;
         }
     }
 
@@ -396,9 +414,23 @@ class Heos extends utils.Adapter {
 
     /**
      * Is called when adapter shuts down
+     *
+     * @param {() => void} [callback] tells the controller that unloading has finished
      */
-    async onUnload() {
-        await this.disconnect();
+    async onUnload(callback) {
+        // from now on nothing may schedule a search any more
+        this.unloading = true;
+        this.reconnect_seq++;
+        this.reconnect_pending = false;
+        try {
+            await this.disconnect();
+        } catch (err) {
+            this.logDebug(`[onUnload] ${err}`, false);
+        } finally {
+            if (typeof callback === 'function') {
+                callback();
+            }
+        }
     }
 
     /**
@@ -430,7 +462,7 @@ class Heos extends utils.Adapter {
                 state.val = parseInt(state.val);
             }
             if (id.device === 'command') {
-                this.executeCommand(state.val);
+                this.executeCommand(state.val).catch(err => this.logDebug(`[executeCommand] ${err}`, false));
             } else if (id.device === 'offline_mode') {
                 this.offline_mode = state.val;
                 if (this.signed_in && state.val) {
@@ -630,7 +662,7 @@ class Heos extends utils.Adapter {
         }
     }
 
-    executeCommand(cmd) {
+    async executeCommand(cmd) {
         //('command: '+cmd);
         // cmd auswerten
         cmd = cmd.split('/');
@@ -649,11 +681,29 @@ class Heos extends utils.Adapter {
                         this.getMusicSources();
                         break;
                     case 'connect':
-                        this.disconnect();
+                        // Hold the reconnect lock until search() starts, so no
+                        // reconnect can slip in while disconnect() is running,
+                        // and drop a reconnect that is already running.
+                        this.reconnect_seq++;
+                        this.reconnect_pending = true;
+                        try {
+                            await this.disconnect();
+                        } catch (err) {
+                            // search() would have released the lock; do it here instead.
+                            this.reconnect_pending = false;
+                            throw err;
+                        }
                         this.search();
                         break;
                     case 'disconnect':
-                        this.disconnect();
+                        // Drop a running reconnect and keep new ones out until disconnected.
+                        this.reconnect_seq++;
+                        this.reconnect_pending = true;
+                        try {
+                            await this.disconnect();
+                        } finally {
+                            this.reconnect_pending = false;
+                        }
                         break;
                     case 'reconnect':
                         this.reconnect();
@@ -760,12 +810,39 @@ class Heos extends utils.Adapter {
         });
     }
 
+    /**
+     * Make a command, an answer or the request times safe to log: a sign in is hidden
+     * completely, the account name and password are removed everywhere else.
+     *
+     * @param data text or object with commands as keys
+     * @returns text without credentials
+     */
+    hideCredentials(data) {
+        if (typeof data !== 'string') {
+            const safe = {};
+            for (const key in data) {
+                safe[this.hideCredentials(key)] = ['un', 'pw'].includes(key) ? '***' : data[key];
+            }
+            return JSON.stringify(safe);
+        }
+        if (data.includes('sign_in')) {
+            return 'sign_in - sensitive data hidden';
+        }
+        let safe = data;
+        for (const secret of [this.config.password, this.config.username]) {
+            if (secret) {
+                safe = safe.split(secret).join('***');
+            }
+        }
+        return safe.replace(/\b(un|pw)=[^&"\s]*/g, '$1=***');
+    }
+
     logData(prefix, data) {
         if (data.toString().includes('sign_in')) {
             this.logSilly(`${prefix}: ${data.toString()}`, false);
             this.logDebug(`${prefix}: sign_in - sensitive data hidden`, false);
         } else {
-            this.logDebug(`${prefix}: ${data.toString()}`, false);
+            this.logDebug(`${prefix}: ${this.hideCredentials(data.toString())}`, false);
         }
     }
 
@@ -1313,7 +1390,7 @@ class Heos extends utils.Adapter {
                 this.logSilly(`parseResponse: ${response}`, false);
                 this.logDebug('parseResponse: sign_in - sensitive data hidden', false);
             } else {
-                this.logDebug(`parseResponse: ${response}`, false);
+                this.logDebug(`parseResponse: ${this.hideCredentials(response)}`, false);
             }
 
             if (response.indexOf('command under process') > 0) {
@@ -1338,7 +1415,7 @@ class Heos extends utils.Adapter {
                 msg_params.delete('text');
                 command += `?${decodeURIComponent(msg_params.toString())}`;
             }
-            this.logDebug(`parseResponse: Reset command timeout - ${command}`, false);
+            this.logDebug(`parseResponse: Reset command timeout - ${this.hideCredentials(command)}`, false);
             //Clear request timeout
             this.deleteRequestTime(command);
 
@@ -1359,7 +1436,7 @@ class Heos extends utils.Adapter {
                         this.signIn();
                         if (!this.replay_timeout) {
                             this.replay_timeout = this.setTimeout(() => {
-                                this.logDebug(`parseResponse: Replay command ${command}`, false);
+                                this.logDebug(`parseResponse: Replay command ${this.hideCredentials(command)}`, false);
                                 this.queueMsg(command);
 
                                 this.replay_timeout = undefined;
@@ -1369,7 +1446,7 @@ class Heos extends utils.Adapter {
                     case '13': //'Processing previous command'
                         if (!this.replay_timeout) {
                             this.replay_timeout = this.setTimeout(() => {
-                                this.logDebug(`parseResponse: Replay command ${command}`, false);
+                                this.logDebug(`parseResponse: Replay command ${this.hideCredentials(command)}`, false);
                                 this.queueMsg(command);
 
                                 this.replay_timeout = undefined;
@@ -1420,7 +1497,7 @@ class Heos extends utils.Adapter {
                             this.getMusicSources();
                             break;
                         case 'user_changed':
-                            this.logDebug(`sign: ${JSON.stringify(jmsg)}`, false);
+                            this.logDebug(`sign: ${this.hideCredentials(jmsg)}`, false);
                             if ('signed_in' in jmsg) {
                                 this.signed_in = true;
                                 await this.setStateAsync('signed_in', true, true);
@@ -1936,7 +2013,7 @@ class Heos extends utils.Adapter {
                 }
             }
         } catch (err) {
-            this.logError(`[parseResponse] ${err}\n ${response}`);
+            this.logError(`[parseResponse] ${err}\n ${this.hideCredentials(response)}`);
         }
     }
 
@@ -2132,26 +2209,38 @@ class Heos extends utils.Adapter {
     }
 
     /**
-     * Process a get_players answer. Only one pass runs at a time; an answer arriving
-     * meanwhile waits and replaces any older waiting answer.
+     * Process a get_players answer. Only one pass per connection runs at a time; an answer
+     * arriving meanwhile waits and replaces any older waiting answer. An answer of a newer
+     * connection does not wait for a pass of an old connection, which is stale and returns
+     * at its next check.
      *
      * @param {object[]} payload player list from get_players
      */
     async startPlayers(payload) {
-        if (this.start_players_running) {
+        const generation = this.connection_generation;
+        if (this.start_players_running && this.start_players_generation === generation) {
             this.start_players_pending = payload;
             return;
         }
+        // a waiting answer belongs to the old connection
+        this.start_players_pending = undefined;
         this.start_players_running = true;
+        this.start_players_generation = generation;
         try {
             let next = payload;
             do {
                 await this.runStartPlayers(next);
+                if (this.start_players_generation !== generation) {
+                    // a pass of a newer connection took over, including its waiting answer
+                    return;
+                }
                 next = this.start_players_pending;
                 this.start_players_pending = undefined;
             } while (next);
         } finally {
-            this.start_players_running = false;
+            if (this.start_players_generation === generation) {
+                this.start_players_running = false;
+            }
         }
     }
 
@@ -2169,10 +2258,13 @@ class Heos extends utils.Adapter {
             this.logDebug('[startPlayers] connection changed meanwhile. Abandon stale run.', false);
             return;
         }
+        // connects of new players run side by side, PLAYER_CONNECT_STAGGER_MS apart
+        const connects = [];
         try {
             const connectedPlayers = [];
             const foundPlayerIps = [];
             let incompleteAnswer = false;
+            let lastConnectStart;
             for (let i = 0; i < payload.length; i++) {
                 let playerConnected = true;
                 const player = payload[i];
@@ -2188,6 +2280,11 @@ class Heos extends utils.Adapter {
                     }
                 } else {
                     if (!(pid in this.players)) {
+                        // a running connect may have made the pass stale; do not add to a reset player list
+                        if (isStale()) {
+                            this.logDebug('[startPlayers] connection changed meanwhile. Abandon stale run.', false);
+                            return;
+                        }
                         if (Object.keys(this.players).length == 0) {
                             this.signIn();
                         }
@@ -2207,37 +2304,25 @@ class Heos extends utils.Adapter {
                             this.manual_search_mode = true;
                             this.logInfo(`preferred player ${player.ip} found. Reconnect.`);
                             this.reconnect();
-                            return;
-                        }
-                        try {
-                            await this.connectPlayerWithDeadline(heosPlayer);
-                            delete this.failing_player_connects[pid];
-                        } catch (err) {
-                            if (!isStale()) {
-                                this.logDebug(`can't connect error: ${err}`, false);
-                                // warn and count only the first failure while the connect keeps failing
-                                if (this.failing_player_connects[pid]) {
-                                    this.logDebug(`can't connect player ${player.name} (${player.ip}). Skip.`, false);
-                                } else {
-                                    this.failing_player_connects[pid] = true;
-                                    this.logWarn(`can't connect player ${player.name} (${player.ip}). Skip.`, false);
-                                    this.raiseFailures(player.ip, ERROR_CODES.General);
-                                }
+                            // go on with this player if the reconnect did not take place
+                            if (isStale()) {
+                                return;
                             }
-                            playerConnected = false;
                         }
-                        if (isStale()) {
-                            if (this.players[pid] !== heosPlayer) {
-                                // the player list was reset meanwhile, so nobody else will stop this player
-                                try {
-                                    await heosPlayer.disconnect();
-                                } catch (err) {
-                                    this.logDebug(`can't disconnect orphaned player ${player.name}: ${err}`, false);
+                        playerConnected = false; // pushed once its connect succeeds
+                        const now = Date.now();
+                        const connectStart =
+                            lastConnectStart === undefined
+                                ? now
+                                : Math.max(now, lastConnectStart + PLAYER_CONNECT_STAGGER_MS);
+                        lastConnectStart = connectStart;
+                        connects.push(
+                            this.connectNewPlayer(heosPlayer, player, connectStart - now, isStale).then(connected => {
+                                if (connected) {
+                                    connectedPlayers.push(pid);
                                 }
-                            }
-                            this.logDebug('[startPlayers] connection changed meanwhile. Abandon stale run.', false);
-                            return;
-                        }
+                            }),
+                        );
                     } else {
                         // rewrite the metadata objects only when the entry changed
                         const signature = this.getPlayerEntrySignature(player);
@@ -2261,6 +2346,7 @@ class Heos extends utils.Adapter {
                     }
                 }
             }
+            await Promise.all(connects);
             if (isStale()) {
                 this.logDebug('[startPlayers] connection changed meanwhile. Abandon stale run.', false);
                 return;
@@ -2361,10 +2447,68 @@ class Heos extends utils.Adapter {
                 await this.updateKnownPlayerIPs();
             }
         } catch (err) {
+            if (isStale()) {
+                this.logDebug(`[startPlayers] connection changed meanwhile. Abandon stale run: ${err}`, false);
+                return;
+            }
             this.logError(`[startPlayers] ${err}`);
             this.raiseLeaderFailures(this.ip);
             this.reconnect();
+        } finally {
+            // however the pass ends, wait for the connects it started, so passes never overlap
+            await Promise.allSettled(connects);
         }
+    }
+
+    /**
+     * Connect a player startPlayers has just created, after waiting delay ms. A failed connect warns
+     * only once per failure streak. Once the pass is stale, the player is not connected any more and
+     * is stopped if the player list no longer holds it.
+     *
+     * @param {HeosPlayer} heosPlayer player to connect
+     * @param {object} player player entry from get_players
+     * @param {number} delay ms to wait before connecting
+     * @param {() => boolean} isStale true once the pass that created the player is stale
+     * @returns {Promise<boolean>} true if the player is connected
+     */
+    async connectNewPlayer(heosPlayer, player, delay, isStale) {
+        const pid = `${player.pid}`;
+        if (delay > 0) {
+            await new Promise(resolve => this.setTimeout(() => resolve(undefined), delay));
+        }
+        let playerConnected = false;
+        if (!isStale()) {
+            try {
+                await this.connectPlayerWithDeadline(heosPlayer);
+                delete this.failing_player_connects[pid];
+                playerConnected = true;
+            } catch (err) {
+                if (!isStale()) {
+                    this.logDebug(`can't connect error: ${err}`, false);
+                    // warn and count only the first failure while the connect keeps failing
+                    if (this.failing_player_connects[pid]) {
+                        this.logDebug(`can't connect player ${player.name} (${player.ip}). Skip.`, false);
+                    } else {
+                        this.failing_player_connects[pid] = true;
+                        this.logWarn(`can't connect player ${player.name} (${player.ip}). Skip.`, false);
+                        this.raiseFailures(player.ip, ERROR_CODES.General);
+                    }
+                }
+            }
+        }
+        if (isStale()) {
+            if (this.players[pid] !== heosPlayer) {
+                // the player list was reset meanwhile, so nobody else will stop this player
+                try {
+                    await heosPlayer.disconnect();
+                } catch (err) {
+                    this.logDebug(`can't disconnect orphaned player ${player.name}: ${err}`, false);
+                }
+            }
+            this.logDebug(`[startPlayers] connection changed meanwhile. Drop player ${player.name}.`, false);
+            return false;
+        }
+        return playerConnected;
     }
 
     /**
@@ -2475,8 +2619,12 @@ class Heos extends utils.Adapter {
 
             if (Object.prototype.hasOwnProperty.call(group, 'gid')) {
                 // volume und mute dazu holen
-                this.executeCommand(`group/get_volume?gid=${group.gid}`);
-                this.executeCommand(`group/get_mute?gid=${group.gid}`);
+                this.executeCommand(`group/get_volume?gid=${group.gid}`).catch(err =>
+                    this.logDebug(`[executeCommand] ${err}`, false),
+                );
+                this.executeCommand(`group/get_mute?gid=${group.gid}`).catch(err =>
+                    this.logDebug(`[executeCommand] ${err}`, false),
+                );
             }
         }
     }
@@ -2514,7 +2662,9 @@ class Heos extends utils.Adapter {
     }
 
     signIn() {
-        if (this.offline_mode || !this.config.username || !this.config.password) {
+        if (this.reboot_only_connection) {
+            this.logDebug('Skip sign in, because this connection is only used to reboot a device.', false);
+        } else if (this.offline_mode || !this.config.username || !this.config.password) {
             this.logInfo('Skip sign in, because offline mode is activated or credentials missing.', false);
         } else if (this.state == STATES.Connected) {
             // heos://system/sign_in?un=heos_username&pw=heos_password
@@ -2670,13 +2820,13 @@ class Heos extends utils.Adapter {
 
     deleteRequestTime(msg) {
         let command = msg.startsWith('system/') ? msg.split('?')[0] : msg;
-        this.logDebug(`deleteRequestTime: before - ${JSON.stringify(this.request_time)}`, false);
+        this.logDebug(`deleteRequestTime: before - ${this.hideCredentials(this.request_time)}`, false);
         for (const cmd in this.request_time) {
             if (command.startsWith(cmd) || cmd.startsWith(command)) {
                 delete this.request_time[cmd];
             }
         }
-        this.logDebug(`deleteRequestTime: after - ${JSON.stringify(this.request_time)}`, false);
+        this.logDebug(`deleteRequestTime: after - ${this.hideCredentials(this.request_time)}`, false);
     }
 
     checkDuplicateRequest(msg) {
@@ -2686,14 +2836,16 @@ class Heos extends utils.Adapter {
             //Request Timeout
             if (Math.floor((now - this.request_time[msg]) / 1000) < this.config.requestTimeout) {
                 duplicate = true;
-                this.logDebug(`Skip duplicate request: ${msg}`);
+                this.logDebug(`Skip duplicate request: ${this.hideCredentials(msg)}`);
             } else {
-                this.logWarn(`[checkDuplicateRequest] Response timed out: ${msg}. Increase leader failure counter.`);
+                this.logWarn(
+                    `[checkDuplicateRequest] Response timed out: ${this.hideCredentials(msg)}. Increase leader failure counter.`,
+                );
                 this.raiseLeaderFailures(this.ip);
                 this.deleteRequestTime(msg);
             }
         }
-        this.logDebug(`Request times: ${JSON.stringify(this.request_time)}`);
+        this.logDebug(`Request times: ${this.hideCredentials(this.request_time)}`);
         return duplicate;
     }
 
@@ -2738,17 +2890,27 @@ class Heos extends utils.Adapter {
     connect(ip) {
         this.connection_generation += 1;
         this.state = STATES.Connecting;
+        this.reboot_only_connection = false;
+
+        // Close a previous connection; its handlers below ignore it from now on.
+        if (this.net_client) {
+            this.net_client.destroy();
+        }
 
         this.ip = ip;
         this.logInfo(`connecting to HEOS (${this.ip}) ...`, false);
-        this.net_client = net.connect({ host: this.ip, port: 1255 });
-        this.net_client.setKeepAlive(true, 60000);
-        //this.net_client.setNoDelay(true);
-        this.net_client.setTimeout(60000);
+        const client = net.connect({ host: this.ip, port: 1255 });
+        this.net_client = client;
+        client.setKeepAlive(true, 60000);
+        //client.setNoDelay(true);
+        client.setTimeout(60000);
 
         this.removeNextConnectPlayerIp(ip);
 
-        this.net_client.on('error', error => {
+        client.on('error', error => {
+            if (client !== this.net_client) {
+                return;
+            }
             this.logError(`[connect] ${error}`, false);
             if (!this.removeRebootIp(ip)) {
                 this.raiseLeaderFailures(this.ip);
@@ -2757,7 +2919,10 @@ class Heos extends utils.Adapter {
         });
 
         // timeout
-        this.net_client.on('timeout', () => {
+        client.on('timeout', () => {
+            if (client !== this.net_client) {
+                return;
+            }
             this.logWarn(`timeout trying connect to ${this.ip}`, false);
             if (!this.removeRebootIp(ip)) {
                 this.raiseLeaderFailures(this.ip);
@@ -2765,12 +2930,16 @@ class Heos extends utils.Adapter {
             this.reconnect();
         });
 
-        this.net_client.on('connect', async () => {
+        client.on('connect', async () => {
+            if (client !== this.net_client) {
+                return;
+            }
             this.setStateChanged('info.connection', true, true);
             this.setStateChanged('connected_ip', this.ip, true);
 
             this.state = STATES.Connected;
             if (this.reboot_ips.includes(this.ip)) {
+                this.reboot_only_connection = true;
                 this.reboot();
             } else {
                 this.manual_search_mode = true;
@@ -2783,13 +2952,21 @@ class Heos extends utils.Adapter {
         });
 
         // Gegenseite hat die Verbindung geschlossen
-        this.net_client.on('end', () => {
+        client.on('end', () => {
+            if (client !== this.net_client) {
+                return;
+            }
             this.logWarn(`HEOS Player ${this.ip} closed the connection.`, false);
             this.reconnect();
         });
 
         // Datenempfang
-        this.net_client.on('data', data => this.onData(data));
+        client.on('data', data => {
+            if (client !== this.net_client) {
+                return;
+            }
+            this.onData(data);
+        });
     }
 
     ssdpLeaderElection() {
@@ -2819,6 +2996,11 @@ class Heos extends utils.Adapter {
 
     /** Verbindung zum HEOS System herstellen */
     async search() {
+        if (this.unloading) {
+            return;
+        }
+        this.reconnect_pending = false;
+        this.reconnect_seq++;
         try {
             //Reset connect states
             this.setStateChanged('info.connection', false, true);
@@ -3311,18 +3493,33 @@ class Heos extends utils.Adapter {
         }
     }
 
+    /**
+     * Run one teardown step of disconnect(). A failing step is logged and does not stop the
+     * teardown, so disconnect() always closes the connection and resets its state.
+     *
+     * @param {string} step name of the step for the log
+     * @param {() => (Promise<void> | void)} fn the step
+     */
+    async runDisconnectStep(step, fn) {
+        try {
+            await fn();
+        } catch (err) {
+            this.logWarn(`[disconnect] ${step} failed: ${err}`, false);
+        }
+    }
+
     /** Alle Player stoppen und die TelNet Verbindung schließen */
     async disconnect() {
         this.logInfo('disconnecting from HEOS ...', false);
         this.state = STATES.Disconnecting;
         this.start_players_pending = undefined;
 
-        await this.stopHeartbeat();
-        this.stopPlayerRefresh();
-        await this.resetTimeouts();
-        await this.resetIntervals();
+        await this.runDisconnectStep('stop heartbeat', () => this.stopHeartbeat());
+        await this.runDisconnectStep('stop player refresh', () => this.stopPlayerRefresh());
+        await this.runDisconnectStep('reset timeouts', () => this.resetTimeouts());
+        await this.runDisconnectStep('reset intervals', () => this.resetIntervals());
 
-        await this.stopPlayers();
+        await this.runDisconnectStep('stop players', () => this.stopPlayers());
 
         if (typeof this.net_client !== 'undefined') {
             try {
@@ -3342,41 +3539,73 @@ class Heos extends utils.Adapter {
             }
             this.nodessdp_client = undefined;
         }
-        await this.setStateAsync('error', false, true);
-        await this.setStateAsync('last_error', '', true);
-        await this.setState('signed_in', false, true);
-        await this.setState('signed_in_user', '', true);
+        await this.runDisconnectStep('reset error', () => this.setStateAsync('error', false, true));
+        await this.runDisconnectStep('reset last_error', () => this.setStateAsync('last_error', '', true));
+        await this.runDisconnectStep('reset signed_in', () => this.setState('signed_in', false, true));
+        await this.runDisconnectStep('reset signed_in_user', () => this.setState('signed_in_user', '', true));
 
-        const list = await this.getChannelsAsync('players');
-        if (list) {
-            list.forEach(async item => {
-                await this.setStateAsync(`${item._id}.connected`, false, true);
-            });
-        }
+        await this.runDisconnectStep('reset player connection states', async () => {
+            const list = await this.getChannelsAsync('players');
+            if (list) {
+                const results = await Promise.allSettled(
+                    list.map(item => this.setStateAsync(`${item._id}.connected`, false, true)),
+                );
+                const failed = results.find(result => result.status === 'rejected');
+                if (failed) {
+                    throw failed.reason;
+                }
+            }
+        });
         this.resetVars(false);
 
-        await this.setStateChangedAsync('info.connection', false, true);
-        await this.setStateChangedAsync('connected_ip', '', true);
+        await this.runDisconnectStep('reset info.connection', () =>
+            this.setStateChangedAsync('info.connection', false, true),
+        );
+        await this.runDisconnectStep('reset connected_ip', () => this.setStateChangedAsync('connected_ip', '', true));
         this.logInfo('disconnected from HEOS', false);
     }
 
     async reconnect() {
+        if (this.unloading) {
+            return;
+        }
+        // Only one reconnect at a time: the lock is held from here until search() starts.
+        if (this.reconnect_pending) {
+            return;
+        }
         if (this.state == STATES.Reconnecting || this.state == STATES.Disconnecting) {
             return;
         }
+        this.reconnect_pending = true;
+        const seq = this.reconnect_seq;
 
         this.logInfo('reconnecting to HEOS ...', false);
 
-        await this.disconnect();
+        try {
+            await this.disconnect();
+        } catch (err) {
+            // Go on with the reconnect anyway; staying disconnected would be worse.
+            this.logWarn(`[reconnect] ${err}`, false);
+        }
+        // A manual command, search() or unload took over while disconnecting.
+        if (seq !== this.reconnect_seq) {
+            return;
+        }
 
         this.state = STATES.Reconnecting;
-        if (this.reconnect_timeout) {
-            clearTimeout(this.reconnect_timeout);
-            this.reconnect_timeout = undefined;
+        try {
+            if (this.reconnect_timeout) {
+                clearTimeout(this.reconnect_timeout);
+                this.reconnect_timeout = undefined;
+            }
+            this.reconnect_timeout = this.setTimeout(() => {
+                this.search();
+            }, Number(this.config.reconnectTimeout));
+        } catch (err) {
+            // Never keep the lock without a scheduled search().
+            this.reconnect_pending = false;
+            this.logWarn(`[reconnect] ${err}`, false);
         }
-        this.reconnect_timeout = this.setTimeout(() => {
-            this.search();
-        }, Number(this.config.reconnectTimeout));
     }
 
     main() {
