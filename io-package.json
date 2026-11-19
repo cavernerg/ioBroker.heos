@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "heos",
-    "version": "3.2.4",
+    "version": "3.3.0",
     "news": {
+      "3.3.0": {
+        "en": "Update dependencies\nPlayer list: no needless reconnect on start, tolerate incomplete entries, periodic refresh with configured IPs\nConnection: only one reconnect at a time, clean unload, staggered player connects\nKeep the HEOS account name and password out of the debug log",
+        "de": "Abhängigkeiten aktualisiert\nPlayerliste: kein unnötiger Reconnect beim Start, unvollständige Einträge werden toleriert, regelmäßige Aktualisierung bei konfigurierten IPs\nVerbindung: nur ein Reconnect gleichzeitig, sauberes Beenden, Player werden versetzt verbunden\nHEOS-Kontoname und Passwort erscheinen nicht mehr im Debug-Log",
+        "ru": "Обновлены зависимости\nСписок плееров: без лишнего переподключения при запуске, неполные записи допускаются, периодическое обновление при заданных IP\nСоединение: только одно переподключение одновременно, корректная выгрузка, поэтапное подключение плееров\nИмя учётной записи HEOS и пароль больше не попадают в журнал отладки",
+        "pt": "Dependências atualizadas\nLista de leitores: sem reconexão desnecessária no arranque, entradas incompletas toleradas, atualização periódica com IPs configurados\nLigação: apenas uma reconexão de cada vez, descarregamento limpo, leitores ligados de forma escalonada\nNome da conta HEOS e palavra-passe fora do registo de depuração",
+        "nl": "Afhankelijkheden bijgewerkt\nSpelerlijst: geen onnodige herverbinding bij start, onvolledige items worden getolereerd, periodieke vernieuwing bij geconfigureerde IP's\nVerbinding: slechts één herverbinding tegelijk, netjes afsluiten, spelers gespreid verbinden\nHEOS-accountnaam en wachtwoord niet meer in het debuglog",
+        "fr": "Dépendances mises à jour\nListe des lecteurs : plus de reconnexion inutile au démarrage, entrées incomplètes tolérées, actualisation périodique avec les IP configurées\nConnexion : une seule reconnexion à la fois, arrêt propre, connexion échelonnée des lecteurs\nNom du compte HEOS et mot de passe absents du journal de débogage",
+        "it": "Dipendenze aggiornate\nElenco lettori: nessuna riconnessione inutile all'avvio, voci incomplete tollerate, aggiornamento periodico con IP configurati\nConnessione: una sola riconnessione alla volta, arresto pulito, connessione scaglionata dei lettori\nNome account HEOS e password esclusi dal log di debug",
+        "es": "Dependencias actualizadas\nLista de reproductores: sin reconexión innecesaria al iniciar, se toleran entradas incompletas, actualización periódica con IP configuradas\nConexión: solo una reconexión a la vez, cierre limpio, reproductores conectados de forma escalonada\nNombre de cuenta HEOS y contraseña fuera del registro de depuración",
+        "pl": "Zaktualizowano zależności\nLista odtwarzaczy: brak zbędnego ponownego łączenia przy starcie, niepełne wpisy są tolerowane, okresowe odświeżanie przy skonfigurowanych IP\nPołączenie: tylko jedno ponowne łączenie naraz, czyste zamykanie, stopniowe łączenie odtwarzaczy\nNazwa konta HEOS i hasło nie trafiają do dziennika debugowania",
+        "uk": "Оновлено залежності\nСписок плеєрів: без зайвого перепідключення під час запуску, неповні записи допускаються, періодичне оновлення за заданих IP\nЗ'єднання: лише одне перепідключення одночасно, коректне вивантаження, поетапне підключення плеєрів\nІм'я облікового запису HEOS і пароль більше не потрапляють до журналу налагодження",
+        "zh-cn": "更新依赖项\n播放器列表：启动时不再无谓重连，容忍不完整条目，使用配置的 IP 时定期刷新\n连接：同一时间只进行一次重连，干净卸载，错开连接播放器\nHEOS 帐户名和密码不再写入调试日志"
+      },
       "3.2.4": {
         "en": "Update dependencies\nFix #549",
         "de": "Abhängigkeiten updaten\nFix #549",

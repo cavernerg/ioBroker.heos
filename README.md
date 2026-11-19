@@ -144,7 +144,9 @@ Alternative you can use the script from Uhula: https://forum.iobroker.net/post/4
 	Placeholder for the next version (at the beginning of the line):
 	### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 3.3.0 (2026-11-19)
+* (withstu) Update dependencies
+* (cavernerg) Make `npm test` run again and add unit tests for the fixes below
 * (cavernerg) Keep preferred IPs and next connect IPs separate to avoid needless reconnects on start; ignore empty entries in the preferred IP list
 * (cavernerg) Refill the connect IP list from the preferred IPs when SSDP discovery is disabled
 * (cavernerg) Abandon player start-up when the connection changed meanwhile
