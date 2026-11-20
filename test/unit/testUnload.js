@@ -43,6 +43,17 @@ describe('unload', () => {
         heos.search.should.not.have.been.called;
     });
 
+    it('leaves no adapter timer registered after unload', async () => {
+        const heos = await connected(undefined, { realReconnect: true });
+        heos.search = sinon.stub();
+        heos.incomplete_players_timeout = heos.setTimeout(() => {}, 60000);
+        heos.player_refresh_interval = heos.setInterval(() => {}, 30000);
+        await heos.reconnect();
+        heos.timers.size.should.be.above(0);
+        await heos.onUnload(() => {});
+        heos.timers.size.should.equal(0);
+    });
+
     it('declares a stop timeout in io-package.json', async () => {
         const pkg = JSON.parse(await readFile(new URL('../../io-package.json', import.meta.url), 'utf8'));
         pkg.common.stopTimeout.should.equal(5000);

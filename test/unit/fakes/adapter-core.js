@@ -5,7 +5,8 @@
  * Provides just enough of the Adapter base class for the real Heos
  * constructor and disconnect() to run without a js-controller or database:
  * - log calls are collected in `logs`
- * - timer helpers delegate to the globals so sinon fake timers apply
+ * - timer helpers delegate to the globals so sinon fake timers apply; like
+ *   js-controller they track running timers in `timers`
  * - getStatesAsync/getChannelsAsync return empty results
  * - the other base-class methods main.js calls are explicit async no-ops,
  *   so sinon can stub them; callback-style getters never invoke the callback
@@ -24,6 +25,7 @@ export class Adapter extends EventEmitter {
         this.namespace = 'heos.0';
         this.config = options.config ?? {};
         this.logs = [];
+        this.timers = new Set();
         this.log = {};
         for (const level of ['silly', 'debug', 'info', 'warn', 'error']) {
             this.log[level] = msg => this.logs.push({ level, msg });
@@ -31,19 +33,28 @@ export class Adapter extends EventEmitter {
     }
 
     setTimeout(cb, ms, ...args) {
-        return setTimeout(cb, ms, ...args);
+        const timer = setTimeout(() => {
+            this.timers.delete(timer);
+            cb(...args);
+        }, ms);
+        this.timers.add(timer);
+        return timer;
     }
 
     clearTimeout(timer) {
         clearTimeout(timer);
+        this.timers.delete(timer);
     }
 
     setInterval(cb, ms, ...args) {
-        return setInterval(cb, ms, ...args);
+        const timer = setInterval(cb, ms, ...args);
+        this.timers.add(timer);
+        return timer;
     }
 
     clearInterval(timer) {
         clearInterval(timer);
+        this.timers.delete(timer);
     }
 
     async getStatesAsync() {
