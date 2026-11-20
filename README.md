@@ -191,6 +191,7 @@ Alternative you can use the script from Uhula: https://forum.iobroker.net/post/4
 * (cavernerg) Give up a player connect after 45 seconds so it cannot block later player list updates
 * (cavernerg) Retry a failed player metadata update with the next player list
 * (cavernerg) Warn only once while a player connect keeps failing
+* (cavernerg) Clear the new player list timers with the adapter timer API
 
 ### 3.3.0 (2026-11-27)
 * (Schimi1983) Player timers use the adapter timer functions, so they are cleaned up reliably when the adapter stops
