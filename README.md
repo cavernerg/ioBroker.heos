@@ -162,7 +162,7 @@ Alternative you can use the script from Uhula: https://forum.iobroker.net/post/4
 * (cavernerg) Never sign in on a connection opened only to reboot a device
 * (cavernerg) Always complete the teardown on disconnect
 * (cavernerg) Keep the HEOS account name and password out of the debug log
-* (cavernerg) Clear the new player list timers with the adapter timer API
+* (cavernerg) Clear all adapter timers with the adapter timer API
 
 ### 3.2.4 (2026-10-04)
 * (withstu) Update dependencies
