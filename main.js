@@ -2367,7 +2367,7 @@ class Heos extends utils.Adapter {
             if (!incompleteAnswer || toleranceExpired) {
                 this.incomplete_players_since = undefined;
                 if (this.incomplete_players_timeout) {
-                    clearTimeout(this.incomplete_players_timeout);
+                    this.clearTimeout(this.incomplete_players_timeout);
                     this.incomplete_players_timeout = undefined;
                 }
             }
@@ -2813,7 +2813,7 @@ class Heos extends utils.Adapter {
     stopPlayerRefresh() {
         if (this.player_refresh_interval) {
             this.logDebug('[PLAYER REFRESH] stop interval', false);
-            clearInterval(this.player_refresh_interval);
+            this.clearInterval(this.player_refresh_interval);
             this.player_refresh_interval = undefined;
         }
     }
@@ -3488,7 +3488,7 @@ class Heos extends utils.Adapter {
             this.replay_timeout = undefined;
         }
         if (this.incomplete_players_timeout) {
-            clearTimeout(this.incomplete_players_timeout);
+            this.clearTimeout(this.incomplete_players_timeout);
             this.incomplete_players_timeout = undefined;
         }
     }
