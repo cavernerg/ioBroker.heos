@@ -57,13 +57,13 @@ class Heos extends utils.Adapter {
         // meanwhile keeps running unreachable. On the first call from the
         // constructor the fields are still undefined, which clearing ignores.
         this.heartbeat_retries = 0;
-        clearInterval(this.heartbeat_interval);
+        this.clearInterval(this.heartbeat_interval);
         this.heartbeat_interval = undefined;
-        clearInterval(this.player_refresh_interval);
+        this.clearInterval(this.player_refresh_interval);
         this.player_refresh_interval = undefined;
-        clearInterval(this.ssdp_search_interval);
+        this.clearInterval(this.ssdp_search_interval);
         this.ssdp_search_interval = undefined;
-        clearTimeout(this.ssdp_search_timeout);
+        this.clearTimeout(this.ssdp_search_timeout);
         this.ssdp_search_timeout = undefined;
 
         this.start_players_errors = 0;
@@ -76,13 +76,13 @@ class Heos extends utils.Adapter {
 
         this.ssdp_player_ips = [];
 
-        clearTimeout(this.reconnect_timeout);
+        this.clearTimeout(this.reconnect_timeout);
         this.reconnect_timeout = undefined;
-        clearTimeout(this.reboot_timeout);
+        this.clearTimeout(this.reboot_timeout);
         this.reboot_timeout = undefined;
-        clearTimeout(this.replay_timeout);
+        this.clearTimeout(this.replay_timeout);
         this.replay_timeout = undefined;
-        clearTimeout(this.incomplete_players_timeout);
+        this.clearTimeout(this.incomplete_players_timeout);
         this.incomplete_players_timeout = undefined;
 
         this.net_client = undefined;
@@ -2892,7 +2892,7 @@ class Heos extends utils.Adapter {
             this.removeRebootIp(this.ip);
         }
         if (this.reboot_timeout) {
-            clearTimeout(this.reboot_timeout);
+            this.clearTimeout(this.reboot_timeout);
             this.reboot_timeout = undefined;
         }
         this.reboot_timeout = this.setTimeout(() => {
@@ -2961,7 +2961,7 @@ class Heos extends utils.Adapter {
     async stopHeartbeat() {
         this.logDebug('[HEARTBEAT] stop interval', false);
         if (this.heartbeat_interval) {
-            clearInterval(this.heartbeat_interval);
+            this.clearInterval(this.heartbeat_interval);
             this.heartbeat_interval = undefined;
         }
         await this.resetHeartbeatRetries(false);
@@ -3159,7 +3159,7 @@ class Heos extends utils.Adapter {
 
     ssdpLeaderElection() {
         if (this.ssdp_search_timeout) {
-            clearTimeout(this.ssdp_search_timeout);
+            this.clearTimeout(this.ssdp_search_timeout);
             this.ssdp_search_timeout = undefined;
         }
         if (typeof this.net_client == 'undefined' && this.state == STATES.Searching) {
@@ -3650,30 +3650,30 @@ class Heos extends utils.Adapter {
 
     async resetIntervals() {
         if (this.heartbeat_interval) {
-            clearInterval(this.heartbeat_interval);
+            this.clearInterval(this.heartbeat_interval);
             this.heartbeat_interval = undefined;
         }
         if (this.ssdp_search_interval) {
-            clearInterval(this.ssdp_search_interval);
+            this.clearInterval(this.ssdp_search_interval);
             this.ssdp_search_interval = undefined;
         }
     }
 
     async resetTimeouts() {
         if (this.reconnect_timeout) {
-            clearTimeout(this.reconnect_timeout);
+            this.clearTimeout(this.reconnect_timeout);
             this.reconnect_timeout = undefined;
         }
         if (this.reboot_timeout) {
-            clearTimeout(this.reboot_timeout);
+            this.clearTimeout(this.reboot_timeout);
             this.reboot_timeout = undefined;
         }
         if (this.ssdp_search_timeout) {
-            clearTimeout(this.ssdp_search_timeout);
+            this.clearTimeout(this.ssdp_search_timeout);
             this.ssdp_search_timeout = undefined;
         }
         if (this.replay_timeout) {
-            clearTimeout(this.replay_timeout);
+            this.clearTimeout(this.replay_timeout);
             this.replay_timeout = undefined;
         }
         if (this.incomplete_players_timeout) {
@@ -3786,7 +3786,7 @@ class Heos extends utils.Adapter {
         this.state = STATES.Reconnecting;
         try {
             if (this.reconnect_timeout) {
-                clearTimeout(this.reconnect_timeout);
+                this.clearTimeout(this.reconnect_timeout);
                 this.reconnect_timeout = undefined;
             }
             this.reconnect_timeout = this.setTimeout(() => {
