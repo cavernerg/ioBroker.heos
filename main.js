@@ -812,7 +812,8 @@ class Heos extends utils.Adapter {
 
     /**
      * Make a command, an answer or the request times safe to log: a sign in is hidden
-     * completely, the account name and password are removed everywhere else.
+     * completely, the account name and password are removed everywhere else, and so is the
+     * account name of a music service in the list of music sources.
      *
      * @param data text or object with commands as keys
      * @returns text without credentials
@@ -834,7 +835,7 @@ class Heos extends utils.Adapter {
                 safe = safe.split(secret).join('***');
             }
         }
-        return safe.replace(/\b(un|pw)=[^&"\s]*/g, '$1=***');
+        return safe.replace(/\b(un|pw)=[^&"\s]*/g, '$1=***').replace(/("service_username"\s*:\s*")[^"]*/g, '$1***');
     }
 
     logData(prefix, data) {
@@ -844,6 +845,26 @@ class Heos extends utils.Adapter {
         } else {
             this.logDebug(`${prefix}: ${this.hideCredentials(data.toString())}`, false);
         }
+    }
+
+    /**
+     * Log a packet as it came from the device. The packet boundary can cut an account name in
+     * two, so the packet is masked together with the unfinished answer in front of it and only
+     * its own part is logged.
+     *
+     * @param data packet from the device
+     */
+    logPacket(data) {
+        const pending = this.unfinished_responses;
+        const text = pending + data.toString();
+        if (text.includes('sign_in')) {
+            this.logSilly(`onData: ${data.toString()}`, false);
+            this.logDebug('onData: sign_in - sensitive data hidden', false);
+            return;
+        }
+        const safe = this.hideCredentials(text);
+        const safePending = this.hideCredentials(pending);
+        this.logDebug(`onData: ${safe.startsWith(safePending) ? safe.slice(safePending.length) : safe}`, false);
     }
 
     getAllIndexes(arr, val) {
@@ -872,7 +893,7 @@ class Heos extends utils.Adapter {
      * @param data data
      */
     onData(data) {
-        this.logData('onData', data);
+        this.logPacket(data);
         try {
             data = data.toString();
             data = data.replace(/[\n\r]/g, ''); // Steuerzeichen "CR" entfernen
