@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "heos",
-    "version": "3.3.0",
+    "version": "3.3.1",
     "news": {
+      "3.3.1": {
+        "en": "Keep the account names of music services out of the debug log\nClear all adapter timers with the adapter timer API",
+        "de": "Kontonamen von Musikdiensten erscheinen nicht mehr im Debug-Log\nAlle Adapter-Timer werden über die Timer-API des Adapters gelöscht",
+        "ru": "Имена учётных записей музыкальных сервисов больше не попадают в журнал отладки\nВсе таймеры адаптера очищаются через API таймеров адаптера",
+        "pt": "Nomes de conta dos serviços de música fora do registo de depuração\nTodos os temporizadores do adaptador são limpos com a API de temporizadores do adaptador",
+        "nl": "Accountnamen van muziekdiensten niet meer in het debuglog\nAlle adaptertimers worden gewist met de timer-API van de adapter",
+        "fr": "Noms de compte des services de musique absents du journal de débogage\nTous les minuteurs de l'adaptateur sont effacés avec l'API de minuteurs de l'adaptateur",
+        "it": "Nomi account dei servizi musicali esclusi dal log di debug\nTutti i timer dell'adattatore vengono cancellati con l'API timer dell'adattatore",
+        "es": "Nombres de cuenta de los servicios de música fuera del registro de depuración\nTodos los temporizadores del adaptador se borran con la API de temporizadores del adaptador",
+        "pl": "Nazwy kont serwisów muzycznych nie trafiają do dziennika debugowania\nWszystkie timery adaptera są usuwane przez API timerów adaptera",
+        "uk": "Імена облікових записів музичних сервісів більше не потрапляють до журналу налагодження\nУсі таймери адаптера очищуються через API таймерів адаптера",
+        "zh-cn": "音乐服务的帐户名不再写入调试日志\n所有适配器定时器均通过适配器定时器 API 清除"
+      },
       "3.3.0": {
         "en": "Update dependencies\nPlayer list: no needless reconnect on start, tolerate incomplete entries, periodic refresh with configured IPs\nConnection: only one reconnect at a time, clean unload, staggered player connects\nKeep the HEOS account name and password out of the debug log",
         "de": "Abhängigkeiten aktualisiert\nPlayerliste: kein unnötiger Reconnect beim Start, unvollständige Einträge werden toleriert, regelmäßige Aktualisierung bei konfigurierten IPs\nVerbindung: nur ein Reconnect gleichzeitig, sauberes Beenden, Player werden versetzt verbunden\nHEOS-Kontoname und Passwort erscheinen nicht mehr im Debug-Log",
