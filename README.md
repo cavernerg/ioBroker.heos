@@ -198,6 +198,7 @@ Alternative you can use the script from Uhula: https://forum.iobroker.net/post/4
 * (cavernerg) Never sign in on a connection opened only to reboot a device
 * (cavernerg) Always complete the teardown on disconnect
 * (cavernerg) Keep the HEOS account name and password out of the debug log
+* (cavernerg) Keep the account names of music services (`service_username`) out of the debug log, also when an answer arrives in several packets
 * (cavernerg) Clear all adapter timers with the adapter timer API
 
 ### 3.3.0 (2026-11-27)
