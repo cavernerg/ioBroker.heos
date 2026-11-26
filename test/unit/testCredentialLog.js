@@ -6,6 +6,7 @@ import { STATES } from '../../lib/constants.js';
 
 const USERNAME = 'user@example.org';
 const PASSWORD = 'secret-pw';
+const SERVICE_USERNAME = 'tidal-user@music.example';
 
 describe('credentials in log lines', () => {
     let clock;
@@ -162,5 +163,87 @@ describe('credentials in log lines', () => {
         heos.request_time.should.deep.equal({});
 
         leaks(heos).should.deep.equal([]);
+    });
+
+    /**
+     * The answer to browse/get_music_sources with one service the user is signed in to,
+     * spaced the way the device sends it.
+     *
+     * @returns {string} raw answer without line end
+     */
+    function musicSourcesAnswer() {
+        return JSON.stringify({
+            heos: { command: 'browse/get_music_sources', result: 'success', message: '' },
+            payload: [
+                { name: 'TuneIn', image_url: '', type: 'music_service', sid: 3, available: 'true' },
+                {
+                    name: 'Tidal',
+                    image_url: '',
+                    type: 'music_service',
+                    sid: 10,
+                    available: 'true',
+                    service_username: SERVICE_USERNAME,
+                },
+            ],
+        }).replace(/":/g, '": ');
+    }
+
+    /**
+     * Log lines above silly level that contain the account name of a music service or a part of it.
+     *
+     * @param {object} heos adapter instance
+     * @returns {object[]} the leaking log entries
+     */
+    function serviceLeaks(heos) {
+        return heos.logs.filter(
+            entry => entry.level !== 'silly' && (entry.msg.includes('tidal-us') || entry.msg.includes('music.example')),
+        );
+    }
+
+    it('keeps the account name of a music service out of the lines for the music sources', async () => {
+        const heos = await signedInConnection();
+        const parseResponse = sinon.spy(heos, 'parseResponse');
+        await receiveRaw(heos, `${musicSourcesAnswer()}\r\n`);
+        parseResponse.calledOnce.should.equal(true);
+        parseResponse.firstCall.args[0].should.include(SERVICE_USERNAME);
+        heos.logs.some(entry => entry.msg.includes('"service_username": "***"')).should.equal(true);
+
+        serviceLeaks(heos).should.deep.equal([]);
+    });
+
+    it('keeps it out when the packet boundary cuts the account name of the music service', async () => {
+        const heos = await signedInConnection();
+        const parseResponse = sinon.spy(heos, 'parseResponse');
+        const answer = musicSourcesAnswer();
+        const cut = answer.indexOf(SERVICE_USERNAME) + 8;
+        await receiveRaw(heos, answer.slice(0, cut));
+        await receiveRaw(heos, `${answer.slice(cut)}\r\n`);
+        parseResponse.calledOnce.should.equal(true);
+        parseResponse.firstCall.args[0].should.include(SERVICE_USERNAME);
+
+        serviceLeaks(heos).should.deep.equal([]);
+    });
+
+    it('keeps it out when the packet boundary cuts the field name before it', async () => {
+        const heos = await signedInConnection();
+        const answer = musicSourcesAnswer();
+        const cut = answer.indexOf('"service_username"') + 9;
+        await receiveRaw(heos, answer.slice(0, cut));
+        await receiveRaw(heos, `${answer.slice(cut)}\r\n`);
+        heos.logs.some(entry => entry.msg.startsWith('onData: invalid json')).should.equal(true);
+
+        serviceLeaks(heos).should.deep.equal([]);
+    });
+
+    it('keeps the HEOS account name out when the packet boundary cuts it', async () => {
+        const heos = await signedInConnection();
+        const answer = JSON.stringify({ heos: { command: 'event/user_changed', message: `signed_in&un=${USERNAME}` } });
+        const cut = answer.indexOf(USERNAME) + 4;
+        await receiveRaw(heos, answer.slice(0, cut));
+        await receiveRaw(heos, `${answer.slice(cut)}\r\n`);
+
+        heos.logs
+            .filter(entry => entry.level !== 'silly' && entry.msg.includes('example.org'))
+            .should.deep.equal([]);
     });
 });
