@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "heos",
-    "version": "3.4.0",
+    "version": "3.5.0",
     "news": {
+      "3.5.0": {
+        "en": "Group presets: new states `pids` (player ids of the preset) and `leader` (optional player id that leads the group when the preset is applied)\nGroup presets: a second `apply` of the same preset was skipped or logged as \"Response timed out\"\nEncrypted connection: README and settings help explain that port 1265 has to be enabled on the devices first",
+        "de": "Gruppen-Presets: neue Datenpunkte `pids` (Player-IDs des Presets) und `leader` (optionale Player-ID, die die Gruppe beim Anwenden führt)\nGruppen-Presets: ein zweites `apply` desselben Presets wurde übersprungen oder als „Response timed out“ gemeldet\nVerschlüsselte Verbindung: README und Hilfetext erklären, dass Port 1265 zuerst an den Geräten freigeschaltet werden muss",
+        "ru": "Групповые пресеты: новые состояния `pids` (ID плееров пресета) и `leader` (необязательный ID плеера, который ведёт группу при применении пресета)\nГрупповые пресеты: повторное `apply` того же пресета пропускалось или записывалось как \"Response timed out\"\nЗашифрованное соединение: README и справка поясняют, что порт 1265 сначала нужно включить на устройствах",
+        "pt": "Predefinições de grupo: novos estados `pids` (IDs dos players da predefinição) e `leader` (ID opcional do player que lidera o grupo ao aplicar a predefinição)\nPredefinições de grupo: um segundo `apply` da mesma predefinição era ignorado ou registado como \"Response timed out\"\nLigação encriptada: o README e a ajuda explicam que a porta 1265 tem de ser ativada primeiro nos dispositivos",
+        "nl": "Groepsvoorinstellingen: nieuwe states `pids` (speler-ID's van de voorinstelling) en `leader` (optionele speler-ID die de groep leidt bij het toepassen)\nGroepsvoorinstellingen: een tweede `apply` van dezelfde voorinstelling werd overgeslagen of gelogd als \"Response timed out\"\nVersleutelde verbinding: README en helptekst leggen uit dat poort 1265 eerst op de apparaten moet worden ingeschakeld",
+        "fr": "Préréglages de groupe : nouveaux états `pids` (ID des lecteurs du préréglage) et `leader` (ID facultatif du lecteur qui dirige le groupe lors de l'application)\nPréréglages de groupe : un second `apply` du même préréglage était ignoré ou journalisé comme « Response timed out »\nConnexion chiffrée : le README et l'aide expliquent que le port 1265 doit d'abord être activé sur les appareils",
+        "it": "Preset di gruppo: nuovi stati `pids` (ID dei player del preset) e `leader` (ID facoltativo del player che guida il gruppo quando si applica il preset)\nPreset di gruppo: un secondo `apply` dello stesso preset veniva saltato o registrato come \"Response timed out\"\nConnessione crittografata: README e guida spiegano che la porta 1265 va prima attivata sui dispositivi",
+        "es": "Preajustes de grupo: nuevos estados `pids` (ID de los reproductores del preajuste) y `leader` (ID opcional del reproductor que dirige el grupo al aplicarlo)\nPreajustes de grupo: un segundo `apply` del mismo preajuste se omitía o se registraba como \"Response timed out\"\nConexión cifrada: el README y la ayuda explican que primero hay que activar el puerto 1265 en los dispositivos",
+        "pl": "Presety grup: nowe stany `pids` (ID odtwarzaczy presetu) i `leader` (opcjonalne ID odtwarzacza prowadzącego grupę po zastosowaniu presetu)\nPresety grup: drugie `apply` tego samego presetu było pomijane lub logowane jako \"Response timed out\"\nPołączenie szyfrowane: README i pomoc wyjaśniają, że port 1265 trzeba najpierw włączyć na urządzeniach",
+        "uk": "Групові пресети: нові стани `pids` (ID плеєрів пресета) та `leader` (необов'язковий ID плеєра, що веде групу під час застосування пресета)\nГрупові пресети: повторне `apply` того самого пресета пропускалося або записувалося як \"Response timed out\"\nЗашифроване з'єднання: README та довідка пояснюють, що порт 1265 спершу треба увімкнути на пристроях",
+        "zh-cn": "群组预设：新增状态 `pids`（预设的播放器 ID）和 `leader`（应用预设时领导群组的可选播放器 ID）\n群组预设：同一预设的第二次 `apply` 会被跳过或记录为 \"Response timed out\"\n加密连接：README 和设置帮助说明需先在设备上启用端口 1265"
+      },
       "3.4.0": {
         "en": "Player list: tolerate incomplete entries, periodic refresh with configured IPs\nConnection: only one reconnect at a time, clean unload, staggered player connects\nKeep account names and the password out of the debug log\nClear all timers with the adapter timer API (player timers no longer pile up)",
         "de": "Playerliste: unvollständige Einträge werden toleriert, regelmäßige Aktualisierung bei konfigurierten IPs\nVerbindung: nur ein Reconnect gleichzeitig, sauberes Beenden, Player werden versetzt verbunden\nKontonamen und Passwort erscheinen nicht mehr im Debug-Log\nAlle Timer werden über die Timer-API des Adapters gelöscht (Player-Timer sammeln sich nicht mehr an)",
@@ -80,19 +93,6 @@
         "pl": "Aktualizacja pakietu\nPoprawa rzutowania liczb",
         "uk": "Оновлення пакета\nПокращення кастингу номерів",
         "zh-cn": "软件包更新\n改进数字投掷"
-      },
-      "3.2.0": {
-        "en": "add flag to disable SSDP discovery\nfixing iobroker checks",
-        "de": "Füge eine Flagge hinzu, um die SSDP-Erkennung zu deaktivieren.\nBehebung von iobroker-Prüfungen",
-        "ru": "добавить флаг для отключения обнаружения SSDP\nИсправление проверок iobroker",
-        "pt": "Adicionar sinalizador para desativar a descoberta SSDP\ncorrigindo verificações do iobroker",
-        "nl": "Voeg een vlag toe om SSDP-detectie uit te schakelen.\niobroker-controles repareren",
-        "fr": "ajouter un indicateur pour désactiver la découverte SSDP\ncorrection des vérifications iobroker",
-        "it": "aggiungi flag per disabilitare il rilevamento SSDP\ncorrezione dei controlli di iobroker",
-        "es": "agregar bandera para deshabilitar el descubrimiento SSDP\nCorrección de comprobaciones de iobroker",
-        "pl": "dodaj flagę, aby wyłączyć wykrywanie SSDP\nnaprawianie kontroli iobroker",
-        "uk": "додати прапорець для вимкнення виявлення SSDP\nвиправлення чеків iobroker",
-        "zh-cn": "添加标志以禁用 SSDP 发现\n修复 iobroker 检查"
       }
     },
     "titleLang": {

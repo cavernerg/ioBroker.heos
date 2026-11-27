@@ -183,7 +183,8 @@ Alternative you can use the script from Uhula: https://forum.iobroker.net/post/4
 	Placeholder for the next version (at the beginning of the line):
 	### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 3.5.0 (2026-11-27)
+* (cavernerg) Add unit tests for group presets
 * (cavernerg) Encrypted connection: README and settings help explain that port 1265 has to be enabled on the devices first
 * (cavernerg) Group presets: new states `pids` (player ids of the preset) and `leader` (optional player id that leads the group when the preset is applied)
 * (cavernerg) Group presets: a second `apply` of the same preset was skipped or logged as "Response timed out" (the request time of `apply_group_preset` was never cleared)
