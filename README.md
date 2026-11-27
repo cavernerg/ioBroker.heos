@@ -183,7 +183,8 @@ Alternative you can use the script from Uhula: https://forum.iobroker.net/post/4
 	Placeholder for the next version (at the beginning of the line):
 	### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 3.4.0 (2026-11-27)
+* (cavernerg) Add unit tests for the fixes below (`npm test`)
 * (cavernerg) Process player list answers one at a time
 * (cavernerg) Tolerate incomplete player entries instead of dropping the connection
 * (cavernerg) Refresh the player list periodically when connected through configured IPs (no SSDP search interval running); unchanged player objects are no longer rewritten
@@ -199,7 +200,7 @@ Alternative you can use the script from Uhula: https://forum.iobroker.net/post/4
 * (cavernerg) Always complete the teardown on disconnect
 * (cavernerg) Keep the HEOS account name and password out of the debug log
 * (cavernerg) Keep the account names of music services (`service_username`) out of the debug log, also when an answer arrives in several packets
-* (cavernerg) Clear all adapter timers with the adapter timer API
+* (cavernerg) Clear all timers with the adapter timer API, also in the player: cleared player timers stayed registered in the adapter and piled up with every player command and event
 
 ### 3.3.0 (2026-11-27)
 * (Schimi1983) Player timers use the adapter timer functions, so they are cleaned up reliably when the adapter stops
