@@ -47,6 +47,8 @@ class Heos extends utils.Adapter {
         this.browse_cmd_map = {};
         // object key below group_presets -> HEOS preset_id
         this.group_preset_ids = {};
+        // object key below group_presets -> player ids of the preset (as strings)
+        this.group_preset_pids = {};
         this.ip = '';
         this.state = STATES.Disconnected;
         this.signed_in = false;
@@ -494,7 +496,7 @@ class Heos extends utils.Adapter {
             ) {
                 this.sendCommandToAllPlayers(`play_preset?preset=${id.state}`, true);
             } else if (id.device === 'group_presets' && id.channel && id.state === 'apply') {
-                this.applyGroupPreset(id.channel);
+                this.applyGroupPreset(id.channel).catch(err => this.logError(`[applyGroupPreset] ${err}`, false));
             } else if (id.device === 'sources' && id.channel && id.state === 'browse') {
                 this.browseSource(id.channel);
             } else if (id.device === 'players' && id.channel && id.state) {
@@ -1972,6 +1974,7 @@ class Heos extends utils.Adapter {
                             break;
                         case 'apply_group_preset':
                             // the device sends a groups_changed event afterwards, which refreshes groups and presets
+                            this.clearApplyGroupPresetRequest(jmsg);
                             break;
                     }
                     break;
@@ -1979,6 +1982,9 @@ class Heos extends utils.Adapter {
                     switch (cmd) {
                         case 'get_group_presets':
                             await this.updateGroupPresets(jdata.payload);
+                            break;
+                        case 'apply_group_preset':
+                            this.clearApplyGroupPresetRequest(jmsg);
                             break;
                         // { "heos":{"command":"player/set_group","result":"success",
                         //           "message": "gid='new group_id'&name='group_name'&pid='player_id_1, player_id_2,…,player_id_n'
@@ -2720,16 +2726,37 @@ class Heos extends utils.Adapter {
      *
      * @param {string} key object key of the preset below group_presets
      */
-    applyGroupPreset(key) {
+    async applyGroupPreset(key) {
         const presetIds = this.group_preset_ids || {};
         const presetId = presetIds[key];
         if (!presetId) {
             this.logWarn(`Unknown group preset ${key}, please wait until the presets are loaded`, false);
             return;
         }
+        const leaderState = await this.getStateAsync(`group_presets.${key}.leader`);
+        let leader = leaderState && leaderState.val != null ? String(leaderState.val).trim() : '';
+        const pids = (this.group_preset_pids || {})[key] || [];
+        if (leader && !pids.includes(leader)) {
+            this.logWarn(`Leader ${leader} is not a player of group preset ${key}, HEOS chooses the leader`, false);
+            leader = '';
+        }
         if (this.state == STATES.Connected) {
-            // heos://group/apply_group_preset?preset_id=preset_uuid
-            this.queueMsg(`group/apply_group_preset?preset_id=${presetId}`);
+            // heos://group/apply_group_preset?preset_id=preset_uuid&leader=player_id (leader is optional)
+            this.queueMsg(`group/apply_group_preset?preset_id=${presetId}${leader ? `&leader=${leader}` : ''}`);
+        }
+    }
+
+    /**
+     * Clear the request time of an applied group preset.
+     *
+     * @param {Record<string, string|null>} jmsg parsed message of the apply_group_preset answer
+     */
+    clearApplyGroupPresetRequest(jmsg) {
+        // @KI_HINWEIS: the answer carries gid, name (and leader) besides preset_id, so the command restored
+        // from it never matches the sent one. Without this the request time stays, and the next apply of the
+        // same preset is skipped as duplicate or counted as response timeout.
+        if (jmsg && jmsg.preset_id) {
+            this.deleteRequestTime(`group/apply_group_preset?preset_id=${jmsg.preset_id}`);
         }
     }
 
@@ -2768,6 +2795,7 @@ class Heos extends utils.Adapter {
             native: {},
         });
         const ids = {};
+        const pidsByKey = {};
         for (const preset of Array.isArray(presets) ? presets : []) {
             if (!preset || !preset.preset_id) {
                 continue;
@@ -2777,10 +2805,16 @@ class Heos extends utils.Adapter {
             ids[key] = presetId;
             const name = preset.name ? String(preset.name) : presetId;
             const path = `group_presets.${key}`;
-            const players = (Array.isArray(preset.devices) ? preset.devices : [])
+            const devices = Array.isArray(preset.devices) ? preset.devices : [];
+            const players = devices
                 .map(device => (device && device.name ? String(device.name) : ''))
                 .filter(playerName => playerName)
                 .join(', ');
+            // players that are not available come without pid
+            const pids = devices
+                .filter(device => device && device.pid !== undefined && device.pid !== null && device.pid !== '')
+                .map(device => String(device.pid));
+            pidsByKey[key] = pids;
             // @KI_HINWEIS: extendObject instead of setObject, so user settings (e.g. history) survive updates.
             await this.extendObjectAsync(path, {
                 type: 'channel',
@@ -2809,6 +2843,33 @@ class Heos extends utils.Adapter {
                 common: { name: 'Players', type: 'string', role: 'text', read: true, write: false },
                 native: {},
             });
+            await this.extendObjectAsync(`${path}.pids`, {
+                type: 'state',
+                common: {
+                    name: 'Player IDs',
+                    desc: 'Player ids of this preset, comma separated (players that are not available are missing)',
+                    type: 'string',
+                    role: 'text',
+                    read: true,
+                    write: false,
+                },
+                native: {},
+            });
+            // @KI_HINWEIS: the leader is a user setting (HEOS does not store one in the preset), so it is
+            // never written by the adapter and survives preset updates.
+            await this.extendObjectAsync(`${path}.leader`, {
+                type: 'state',
+                common: {
+                    name: 'Leader',
+                    desc: 'Player id that leads the group when the preset is applied (empty = HEOS decides)',
+                    type: 'string',
+                    role: 'text',
+                    read: true,
+                    write: true,
+                    def: '',
+                },
+                native: {},
+            });
             await this.extendObjectAsync(`${path}.apply`, {
                 type: 'state',
                 common: {
@@ -2825,8 +2886,10 @@ class Heos extends utils.Adapter {
             await this.setStateChangedAsync(`${path}.name`, name, true);
             await this.setStateChangedAsync(`${path}.state`, preset.state ? String(preset.state) : '', true);
             await this.setStateChangedAsync(`${path}.players`, players, true);
+            await this.setStateChangedAsync(`${path}.pids`, pids.join(','), true);
         }
         this.group_preset_ids = ids;
+        this.group_preset_pids = pidsByKey;
 
         // remove presets that were deleted in the HEOS app
         const channels = await this.getChannelsOfAsync('group_presets');
