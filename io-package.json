@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "heos",
-    "version": "3.5.0",
+    "version": "3.5.1",
     "news": {
+      "3.5.1": {
+        "en": "Group presets: a valid `leader` is confirmed with ack (a player id that is not part of the preset is only logged as a warning)\nREADME: the preset `state` is not always updated after `apply`",
+        "de": "Gruppen-Presets: ein gültiger `leader` wird mit ack bestätigt (eine Player-ID, die nicht zum Preset gehört, erzeugt nur eine Warnung)\nREADME: der `state` eines Presets wird nach `apply` nicht immer aktualisiert",
+        "ru": "Групповые пресеты: допустимый `leader` подтверждается с ack (ID плеера, не входящего в пресет, только записывается как предупреждение)\nREADME: `state` пресета не всегда обновляется после `apply`",
+        "pt": "Predefinições de grupo: um `leader` válido é confirmado com ack (um ID de player que não pertence à predefinição apenas gera um aviso)\nREADME: o `state` da predefinição nem sempre é atualizado após `apply`",
+        "nl": "Groepsvoorinstellingen: een geldige `leader` wordt met ack bevestigd (een speler-ID die niet bij de voorinstelling hoort, geeft alleen een waarschuwing)\nREADME: de `state` van een voorinstelling wordt na `apply` niet altijd bijgewerkt",
+        "fr": "Préréglages de groupe : un `leader` valide est confirmé avec ack (un ID de lecteur qui ne fait pas partie du préréglage ne produit qu'un avertissement)\nREADME : le `state` d'un préréglage n'est pas toujours mis à jour après `apply`",
+        "it": "Preset di gruppo: un `leader` valido viene confermato con ack (un ID di player che non fa parte del preset genera solo un avviso)\nREADME: lo `state` del preset non sempre viene aggiornato dopo `apply`",
+        "es": "Preajustes de grupo: un `leader` válido se confirma con ack (un ID de reproductor que no pertenece al preajuste solo genera un aviso)\nREADME: el `state` del preajuste no siempre se actualiza tras `apply`",
+        "pl": "Presety grup: prawidłowy `leader` jest potwierdzany przez ack (ID odtwarzacza spoza presetu generuje tylko ostrzeżenie)\nREADME: `state` presetu nie zawsze jest aktualizowany po `apply`",
+        "uk": "Групові пресети: коректний `leader` підтверджується з ack (ID плеєра, що не входить до пресета, лише записується як попередження)\nREADME: `state` пресета не завжди оновлюється після `apply`",
+        "zh-cn": "群组预设：有效的 `leader` 会以 ack 确认（不属于该预设的播放器 ID 只会记录警告）\nREADME：应用 `apply` 后预设的 `state` 不一定会更新"
+      },
       "3.5.0": {
         "en": "Group presets: new states `pids` (player ids of the preset) and `leader` (optional player id that leads the group when the preset is applied)\nGroup presets: a second `apply` of the same preset was skipped or logged as \"Response timed out\"\nEncrypted connection: README and settings help explain that port 1265 has to be enabled on the devices first",
         "de": "Gruppen-Presets: neue Datenpunkte `pids` (Player-IDs des Presets) und `leader` (optionale Player-ID, die die Gruppe beim Anwenden führt)\nGruppen-Presets: ein zweites `apply` desselben Presets wurde übersprungen oder als „Response timed out“ gemeldet\nVerschlüsselte Verbindung: README und Hilfetext erklären, dass Port 1265 zuerst an den Geräten freigeschaltet werden muss",
@@ -80,19 +93,6 @@
         "pl": "Napraw wyniki sprawdzania repozytorium",
         "uk": "Виправлення знахідок перевірки репозиторію",
         "zh-cn": "修复存储库检查器发现的问题"
-      },
-      "3.2.1": {
-        "en": "Package update\nImprove number casting",
-        "de": "Paketaktualisierung\nVerbesserung der Zahlenzuordnung",
-        "ru": "Обновление пакета\nУлучшить отсчет чисел",
-        "pt": "Atualização de pacote\nMelhorar a conversão de números",
-        "nl": "Pakketupdate\nVerbeter de getallencasting",
-        "fr": "Mise à jour du package\nAméliorer le tirage numérique",
-        "it": "Aggiornamento del pacchetto\nMigliorare la composizione numerica",
-        "es": "Actualización del paquete\nMejorar la conversión de números",
-        "pl": "Aktualizacja pakietu\nPoprawa rzutowania liczb",
-        "uk": "Оновлення пакета\nПокращення кастингу номерів",
-        "zh-cn": "软件包更新\n改进数字投掷"
       }
     },
     "titleLang": {

@@ -183,7 +183,7 @@ Alternative you can use the script from Uhula: https://forum.iobroker.net/post/4
 	Placeholder for the next version (at the beginning of the line):
 	### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 3.5.1 (2026-11-28)
 * (cavernerg) Group presets: a valid `leader` is confirmed with ack; README notes that the preset `state` is not always updated after `apply`
 
 ### 3.5.0 (2026-11-27)
