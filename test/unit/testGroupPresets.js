@@ -124,6 +124,98 @@ describe('group presets', () => {
         });
     });
 
+    describe('leader', () => {
+        /**
+         * Connected adapter with one known preset (players 1 and -2) whose state writes are recorded.
+         *
+         * @returns {Promise<object>} the Heos adapter instance
+         */
+        async function withLeaderState() {
+            const heos = await withPreset();
+            heos.setStateAsync = sinon.stub().resolves();
+            heos.idToDCS = id => {
+                const parts = id.split('.');
+                return { device: parts[2], channel: parts[3], state: parts[4] };
+            };
+            return heos;
+        }
+
+        /**
+         * Write the leader state like a user does and let the async confirmation run.
+         *
+         * @param {object} heos adapter instance
+         * @param {any} val value to write
+         * @param {string} [key] object key of the preset
+         * @param {boolean} [ack] ack flag of the write
+         */
+        async function writeLeader(heos, val, key = KEY, ack = false) {
+            heos.onStateChange(`heos.0.group_presets.${key}.leader`, { val, ack });
+            await new Promise(resolve => setImmediate(resolve));
+        }
+
+        /**
+         * Leader writes with ack:true.
+         *
+         * @param {object} heos adapter instance
+         * @returns {Array<Array<any>>} the arguments of these writes
+         */
+        function confirmed(heos) {
+            return heos.setStateAsync
+                .getCalls()
+                .filter(call => String(call.args[0]).endsWith('.leader') && call.args[2] === true)
+                .map(call => call.args);
+        }
+
+        for (const val of ['-2', '1', '', ' -2 ', null]) {
+            it(`confirms ${JSON.stringify(val)} with ack and leaves the value as written`, async () => {
+                const heos = await withLeaderState();
+                await writeLeader(heos, val);
+
+                expect(confirmed(heos)).to.deep.equal([[`group_presets.${KEY}.leader`, val, true]]);
+            });
+        }
+
+        it('confirms a numeric leader as string, the state is of type string', async () => {
+            const heos = await withLeaderState();
+            await writeLeader(heos, 1);
+
+            expect(confirmed(heos)).to.deep.equal([[`group_presets.${KEY}.leader`, '1', true]]);
+        });
+
+        it('warns and does not confirm a leader that is not a player of the preset', async () => {
+            const heos = await withLeaderState();
+            const warn = sinon.spy(heos, 'logWarn');
+            await writeLeader(heos, '99');
+
+            expect(confirmed(heos)).to.deep.equal([]);
+            expect(warn.calledOnce).to.equal(true);
+            expect(warn.firstCall.args[0]).to.include('99');
+        });
+
+        it('warns and does not confirm a leader of an unknown preset', async () => {
+            const heos = await withLeaderState();
+            const warn = sinon.spy(heos, 'logWarn');
+            await writeLeader(heos, '-2', 'unknown');
+
+            expect(heos.setStateAsync.called).to.equal(false);
+            expect(warn.calledOnce).to.equal(true);
+        });
+
+        it('ignores its own confirmation (ack:true)', async () => {
+            const heos = await withLeaderState();
+            await writeLeader(heos, '-2', KEY, true);
+
+            expect(heos.setStateAsync.called).to.equal(false);
+        });
+
+        it('sends nothing to the device when the leader is written', async () => {
+            const heos = await withLeaderState();
+            await writeLeader(heos, '-2');
+
+            expect(written(heos)).to.deep.equal([]);
+        });
+    });
+
     describe('update', () => {
         /**
          * Connected adapter whose object and state writes are recorded.
